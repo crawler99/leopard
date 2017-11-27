@@ -6,12 +6,16 @@
 
 namespace leopard { namespace utils {
 
+//
+// - Thread safe.
+// - Create instance with arbitrary arguments (perfect-forwarding).
+//
 template <typename T>
 class Singleton : private NonCopyable
 {
 public:
     template <typename... Args>
-    static T* instance(Args&&... args)
+    static T* Instance(Args&&... args)
     {
         std::lock_guard<std::mutex> guard(_mutex);
         if (_instance)
@@ -22,7 +26,7 @@ public:
         return _instance;
     }
 
-    static T* get_instance()
+    static T* GetInstance()
     {
         if (!_instance)
         {
