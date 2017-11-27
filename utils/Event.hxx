@@ -23,21 +23,6 @@ public:
         return k;
     }
     
-    
-    /*
-    uint32_t Connect(Func&& f)
-    {
-        std::lock_guard<std::mutex> guard(_mutex);
-        return Assign(f);
-    }
-
-    uint32_t Connect(const Func &f)
-    {
-        std::lock_guard<std::mutex> guard(_mutex);
-        return Assign(f);
-    }
-    */
-
     void Disconnect(uint32_t key)
     {
         std::lock_guard<std::mutex> guard(_mutex);
@@ -55,8 +40,6 @@ public:
     }
 
 private:
-    
-
     std::mutex _mutex;
     uint32_t _observer_id = { 0 };
     std::map<uint32_t, Func> _connections;
