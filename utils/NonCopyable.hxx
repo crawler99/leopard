@@ -1,7 +1,7 @@
-#ifndef _NONCOPYABLE_HXX_
-#define _NONCOPYABLE_HXX_
+#ifndef LEOPARD_UTILS_NONCOPYABLE_HXX_
+#define LEOPARD_UTILS_NONCOPYABLE_HXX_
 
-namespace utils {
+namespace leopard { namespace utils {
 
 class NonCopyable 
 {
@@ -14,6 +14,7 @@ public:
     NonCopyable& operator = (const NonCopyable&) = delete;
 };
 
-}
+} // namespace utils
+} // namespace leopard
 
 #endif

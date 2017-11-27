@@ -1,10 +1,10 @@
-#ifndef _SINGLETON_HXX_
-#define _SINGLETON_HXX_
+#ifndef LEOPARD_UTILS_SINGLETON_HXX_
+#define LEOPARD_UTILS_SINGLETON_HXX_
 
 #include "NonCopyable.hxx"
 #include <mutex>
 
-namespace utils {
+namespace leopard { namespace utils {
 
 template <typename T>
 class Singleton : private NonCopyable
@@ -42,6 +42,7 @@ std::mutex Singleton<T>::_mutex;
 template <typename T>
 T* Singleton<T>::_instance = { nullptr };
 
-}
+} // namespace utils
+} // namespace leopard
 
 #endif

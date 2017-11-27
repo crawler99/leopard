@@ -47,24 +47,24 @@ TEST(Correctness, SimpleInput)
     };
 
     std::string str { "test" };
-    utils::Singleton<A>::instance(str);
-    utils::Singleton<B>::instance(std::move(str));
+    leopard::utils::Singleton<A>::instance(str);
+    leopard::utils::Singleton<B>::instance(std::move(str));
     
     try
     {
-        utils::Singleton<C>::get_instance()->Print();
+        leopard::utils::Singleton<C>::get_instance()->Print();
     }
     catch (const std::exception &e)
     {
         std::cout << "Exception caught: " << e.what() << std::endl;
     }
     
-    utils::Singleton<C>::instance(1, 3.14);
-    utils::Singleton<C>::get_instance()->Print();
+    leopard::utils::Singleton<C>::instance(1, 3.14);
+    leopard::utils::Singleton<C>::get_instance()->Print();
     
     try
     {
-        utils::Singleton<C>::instance(2, 3.14);
+        leopard::utils::Singleton<C>::instance(2, 3.14);
     }
     catch (const std::exception &e)
     {
