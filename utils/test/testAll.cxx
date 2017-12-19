@@ -156,13 +156,12 @@ TEST(ThreadRAII, Correctness)
 {
     int maxVal = 20;
     std::vector<int> goodVals;
-    std::function<bool(int)> filter = Filter;
     
     leopard::utils::ThreadRAII t(
-        std::thread([&filter, maxVal, &goodVals] {
+        std::thread([maxVal, &goodVals] {
             for (auto i = 0; i <= maxVal; ++i)
             {
-                if (filter(i))
+                if (Filter(i))
                 {
                     goodVals.push_back(i);
                 }
