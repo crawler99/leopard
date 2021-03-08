@@ -156,7 +156,7 @@ TEST(ThreadRAII, Correctness)
 {
     int maxVal = 20;
     std::vector<int> goodVals;
-    
+
     leopard::utils::ThreadRAII t(
         std::thread([maxVal, &goodVals] {
             for (auto i = 0; i <= maxVal; ++i)
@@ -173,7 +173,7 @@ TEST(ThreadRAII, Correctness)
         // We should join the filtering thread
         leopard::utils::ThreadRAII::DtorAction::join
     );
-    
+
     if (ConditionsAreSatisfied())
     {
         std::cout << "Cond => satisfied" << std::endl;
