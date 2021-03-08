@@ -92,9 +92,11 @@ macro(package_add_test LIBNAME)
     # Link the Google test infrastructure, mocking library, and a default main fuction to the test executable.
     # Remove g_test_main if writing an own main function.
     target_link_libraries(${EXECUTABLE} ${LIBNAME} gtest gmock gtest_main)
-    gtest_discover_tests(${EXECUTABLE}
-        # Set a working directory to your project root so that you can find test data via paths relative to the project root.
-        WORKING_DIRECTORY ${PROJECT_DIR}
+    gtest_discover_tests(
+        ${EXECUTABLE}
+        # Set working directory to project root so that we can find test data via paths relative to the project root.
+        # If not set, the working directory will be the one where the executed test binary locates.
+        WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
     )
 endmacro()
 
