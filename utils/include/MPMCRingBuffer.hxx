@@ -23,15 +23,15 @@ public:
     bool Init(std::size_t capacity)
     {
         std::size_t expected = 0;
-        auto actualCapacity = Math::NextPowerOf2(capacity);
+        auto actual_capacity = Math::NextPowerOf2(capacity);
 
-        if (!_capacity.compare_exchange_strong(expected, actualCapacity))
+        if (!_capacity.compare_exchange_strong(expected, actual_capacity))
         {
             std::cout << "Buffer already initialized: capacity=" << _capacity.load(std::memory_order_acquire);
             return false;
         }
 
-        _buffer.resize(actualCapacity);
+        _buffer.resize(actual_capacity);
         std::cout << "Buffer initialized: capacity=" << _capacity.load(std::memory_order_acquire);
         return true;
     }
@@ -63,27 +63,27 @@ public:
     */
     T* GetMessageForWrite()
     {
-        auto writeCtrSnapshot = _write_reserve_count.load(std::memory_order_acquire);
-        auto readCtrSnapshot = _read_commit_count.load(std::memory_order_acquire);
+        auto write_ctr_snapshot = _write_reserve_count.load(std::memory_order_acquire);
+        auto read_ctr_snapshot = _read_commit_count.load(std::memory_order_acquire);
 
-        if (UNLIKELY(IsFull(writeCtrSnapshot, readCtrSnapshot)))
+        if (UNLIKELY(IsFull(write_ctr_snapshot, read_ctr_snapshot)))
         {
             return nullptr;
         }
 
-        while (!_write_reserve_count.compare_exchange_weak(writeCtrSnapshot, writeCtrSnapshot + 1, std::memory_order_release))
+        while (!_write_reserve_count.compare_exchange_weak(write_ctr_snapshot, write_ctr_snapshot + 1, std::memory_order_release))
         {
             // Don't check against the latest _read_commit_count whether the buff is full as we want to
             // fail fast here and let the caller to decide the retry policy.
-            if (UNLIKELY(IsFull(writeCtrSnapshot, readCtrSnapshot)))
+            if (UNLIKELY(IsFull(write_ctr_snapshot, read_ctr_snapshot)))
             {
                 return nullptr;
             }
         }
 
-        T *rst = &_buffer[GetPos(writeCtrSnapshot)];
-        rst->mSeq = writeCtrSnapshot;
-        rst->mDataPointers.resize(0); // No memory cost if std::is_trivially_destructible<T>::value is true.
+        T *rst = &_buffer[GetPos(write_ctr_snapshot)];
+        rst->_seq = write_ctr_snapshot;
+        rst->_data_pointers.resize(0); // No memory cost for most of std containers if std::is_trivially_destructible<T>::value is true.
         return rst;
     }
 
@@ -94,7 +94,7 @@ public:
     */
     void CommitMessageWrite(const T *msg)
     {
-        while (_write_commit_count.load(std::memory_order_acquire) < msg->mSeq) {}
+        while (_write_commit_count.load(std::memory_order_acquire) < msg->_seq) {}
         _write_commit_count.fetch_add(1, std::memory_order_release);
     }
 
@@ -105,25 +105,25 @@ public:
     */
     const T* GetMessageForRead()
     {
-        auto writeCtrSnapshot = _write_commit_count.load(std::memory_order_acquire);
-        auto readCtrSnapshot = _read_reserve_count.load(std::memory_order_acquire);
+        auto write_ctr_snapshot = _write_commit_count.load(std::memory_order_acquire);
+        auto read_ctr_snapshot = _read_reserve_count.load(std::memory_order_acquire);
 
-        if (IsEmpty(writeCtrSnapshot, readCtrSnapshot))
+        if (IsEmpty(write_ctr_snapshot, read_ctr_snapshot))
         {
             return nullptr;
         }
 
-        while (!_read_reserve_count.compare_exchange_weak(readCtrSnapshot, readCtrSnapshot + 1, std::memory_order_release))
+        while (!_read_reserve_count.compare_exchange_weak(read_ctr_snapshot, read_ctr_snapshot + 1, std::memory_order_release))
         {
             // Don't check against the latest _write_commit_count whether the buff is empty as we want to
             // fail fast here and let the caller to decide the retry policy.
-            if (IsEmpty(writeCtrSnapshot, readCtrSnapshot))
+            if (IsEmpty(write_ctr_snapshot, read_ctr_snapshot))
             {
                 return nullptr;
             }
         }
 
-        return &_buffer[GetPos(readCtrSnapshot)];
+        return &_buffer[GetPos(read_ctr_snapshot)];
     }
 
     /**
@@ -133,7 +133,7 @@ public:
     */
     void CommitMessageRead(const T *msg)
     {
-        while (_read_commit_count.load(std::memory_order_acquire) < msg->mSeq) {}
+        while (_read_commit_count.load(std::memory_order_acquire) < msg->_seq) {}
         _read_commit_count.fetch_add(1, std::memory_order_release);
     }
 
