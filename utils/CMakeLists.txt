@@ -1,8 +1,8 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.1)
 
-project(utils)
+add_library(utils SHARED)
 
-include_directories(${PROJECT_SOURCE_DIR})
+target_include_directories(utils PUBLIC include)
 
 if (${BUILD_TESTS})
   message("Building tests for " ${PROJECT_NAME} " ...")
