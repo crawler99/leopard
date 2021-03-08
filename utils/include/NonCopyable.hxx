@@ -3,7 +3,7 @@
 
 namespace leopard { namespace utils {
 
-class NonCopyable 
+class NonCopyable
 {
 public:
     NonCopyable() = default;
@@ -14,7 +14,6 @@ public:
     NonCopyable& operator = (const NonCopyable&) = delete;
 };
 
-} // namespace utils
-} // namespace leopard
+}} // namespace utils::leopard
 
-#endif
+#endif // LEOPARD_UTILS_NONCOPYABLE_HXX_

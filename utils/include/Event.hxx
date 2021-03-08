@@ -22,7 +22,7 @@ public:
         _connections.emplace(k, std::forward<F>(f));
         return k;
     }
-    
+
     void Disconnect(uint32_t key)
     {
         std::lock_guard<std::mutex> guard(_mutex);
@@ -45,7 +45,6 @@ private:
     std::map<uint32_t, Func> _connections;
 };
 
-} // namespace utils
-} // namespace leopard
+}} // namespace utils::leopard
 
-#endif
+#endif // LEOPARD_UTILS_EVENT_HXX_

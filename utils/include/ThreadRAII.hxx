@@ -6,7 +6,7 @@
 namespace leopard { namespace utils {
 
 //
-// - NOT thread safe. It means user should guarantee that there's no race condtion 
+// - NOT thread safe. It means user should guarantee that there's no race condtion
 //   calling the thread object passed in as well as calling this wrapper object.
 //
 class ThreadRAII
@@ -49,7 +49,6 @@ private:
     std::thread t;
 };
 
-} // namespace utils
-} // namespace leopard
+}} // namespace utils::leopard
 
-#endif
+#endif // LEOPARD_UTILS_THREADRAII_HXX_

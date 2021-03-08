@@ -33,7 +33,7 @@ public:
             throw std::logic_error("Instance has not been initialized.");
         }
         return _instance;
-    } 
+    }
 
 private:
     static std::mutex _mutex;
@@ -46,7 +46,6 @@ std::mutex Singleton<T>::_mutex;
 template <typename T>
 T* Singleton<T>::_instance = { nullptr };
 
-} // namespace utils
-} // namespace leopard
+}} // namespace utils::leopard
 
-#endif
+#endif // LEOPARD_UTILS_SINGLETON_HXX_
