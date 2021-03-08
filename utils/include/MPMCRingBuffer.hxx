@@ -25,14 +25,14 @@ public:
         std::size_t expected = 0;
         auto actualCapacity = Math::NextPowerOf2(capacity);
 
-        if (!mCapacity.compare_exchange_strong(expected, actualCapacity))
+        if (!_capacity.compare_exchange_strong(expected, actualCapacity))
         {
-            std::cout << "Buffer already initialized: capacity=" << mCapacity.load(std::memory_order_acquire);
+            std::cout << "Buffer already initialized: capacity=" << _capacity.load(std::memory_order_acquire);
             return false;
         }
 
-        mBuffer.resize(actualCapacity);
-        std::cout << "Buffer initialized: capacity=" << mCapacity.load(std::memory_order_acquire);
+        _buffer.resize(actualCapacity);
+        std::cout << "Buffer initialized: capacity=" << _capacity.load(std::memory_order_acquire);
         return true;
     }
 
@@ -43,7 +43,7 @@ public:
     */
     std::size_t GetCapacity()
     {
-        return mCapacity.load(std::memory_order_acquire);
+        return _capacity.load(std::memory_order_acquire);
     }
 
     /**
@@ -53,7 +53,7 @@ public:
     */
     std::size_t GetMessageNumber()
     {
-        return mWriteCommitCount.load(std::memory_order_acquire) - mReadCommitCount.load(std::memory_order_acquire);
+        return _write_commit_count.load(std::memory_order_acquire) - _read_commit_count.load(std::memory_order_acquire);
     }
 
     /**
@@ -63,17 +63,17 @@ public:
     */
     T* GetMessageForWrite()
     {
-        auto writeCtrSnapshot = mWriteReserveCount.load(std::memory_order_acquire);
-        auto readCtrSnapshot = mReadCommitCount.load(std::memory_order_acquire);
+        auto writeCtrSnapshot = _write_reserve_count.load(std::memory_order_acquire);
+        auto readCtrSnapshot = _read_commit_count.load(std::memory_order_acquire);
 
         if (UNLIKELY(IsFull(writeCtrSnapshot, readCtrSnapshot)))
         {
             return nullptr;
         }
 
-        while (!mWriteReserveCount.compare_exchange_weak(writeCtrSnapshot, writeCtrSnapshot + 1, std::memory_order_release))
+        while (!_write_reserve_count.compare_exchange_weak(writeCtrSnapshot, writeCtrSnapshot + 1, std::memory_order_release))
         {
-            // Don't check against the latest mReadCommitCount whether the buff is full as we want to
+            // Don't check against the latest _read_commit_count whether the buff is full as we want to
             // fail fast here and let the caller to decide the retry policy.
             if (UNLIKELY(IsFull(writeCtrSnapshot, readCtrSnapshot)))
             {
@@ -81,9 +81,9 @@ public:
             }
         }
 
-        T *rst = &mBuffer[GetPos(writeCtrSnapshot)];
+        T *rst = &_buffer[GetPos(writeCtrSnapshot)];
         rst->mSeq = writeCtrSnapshot;
-        rst->mDataPointers.resize(0); // No memory cost
+        rst->mDataPointers.resize(0); // No memory cost if std::is_trivially_destructible<T>::value is true.
         return rst;
     }
 
@@ -94,8 +94,8 @@ public:
     */
     void CommitMessageWrite(const T *msg)
     {
-        while (mWriteCommitCount.load(std::memory_order_acquire) < msg->mSeq) {}
-        mWriteCommitCount.fetch_add(1, std::memory_order_release);
+        while (_write_commit_count.load(std::memory_order_acquire) < msg->mSeq) {}
+        _write_commit_count.fetch_add(1, std::memory_order_release);
     }
 
     /**
@@ -105,17 +105,17 @@ public:
     */
     const T* GetMessageForRead()
     {
-        auto writeCtrSnapshot = mWriteCommitCount.load(std::memory_order_acquire);
-        auto readCtrSnapshot = mReadReserveCount.load(std::memory_order_acquire);
+        auto writeCtrSnapshot = _write_commit_count.load(std::memory_order_acquire);
+        auto readCtrSnapshot = _read_reserve_count.load(std::memory_order_acquire);
 
         if (IsEmpty(writeCtrSnapshot, readCtrSnapshot))
         {
             return nullptr;
         }
 
-        while (!mReadReserveCount.compare_exchange_weak(readCtrSnapshot, readCtrSnapshot + 1, std::memory_order_release))
+        while (!_read_reserve_count.compare_exchange_weak(readCtrSnapshot, readCtrSnapshot + 1, std::memory_order_release))
         {
-            // Don't check against the latest mWriteCommitCount whether the buff is empty as we want to
+            // Don't check against the latest _write_commit_count whether the buff is empty as we want to
             // fail fast here and let the caller to decide the retry policy.
             if (IsEmpty(writeCtrSnapshot, readCtrSnapshot))
             {
@@ -123,7 +123,7 @@ public:
             }
         }
 
-        return &mBuffer[GetPos(readCtrSnapshot)];
+        return &_buffer[GetPos(readCtrSnapshot)];
     }
 
     /**
@@ -133,14 +133,14 @@ public:
     */
     void CommitMessageRead(const T *msg)
     {
-        while (mReadCommitCount.load(std::memory_order_acquire) < msg->mSeq) {}
-        mReadCommitCount.fetch_add(1, std::memory_order_release);
+        while (_read_commit_count.load(std::memory_order_acquire) < msg->mSeq) {}
+        _read_commit_count.fetch_add(1, std::memory_order_release);
     }
 
 private:
     ALWAYS_INLINE std::size_t GetPos(std::size_t count)
     {
-        return count & (mCapacity.load(std::memory_order_acquire) - 1);
+        return count & (_capacity.load(std::memory_order_acquire) - 1);
     }
 
     ALWAYS_INLINE bool IsFull(std::size_t writeCtr, std::size_t readCtr)
@@ -148,7 +148,7 @@ private:
         // Note: The caller of this function may pass in writeCtr and readCtr that
         // are not fetched at the same moment. So we need to use ">=" rather than "=="
         // to do the check.
-        return writeCtr - readCtr >= mCapacity.load(std::memory_order_acquire);
+        return writeCtr - readCtr >= _capacity.load(std::memory_order_acquire);
     }
 
     ALWAYS_INLINE bool IsEmpty(std::size_t writeCtr, std::size_t readCtr)
@@ -159,12 +159,12 @@ private:
         return readCtr >= writeCtr;
     }
 
-    std::vector<T> mBuffer;
-    std::atomic<std::size_t> mCapacity{0};
-    std::atomic<std::size_t> mWriteReserveCount{0};
-    std::atomic<std::size_t> mWriteCommitCount{0};
-    std::atomic<std::size_t> mReadReserveCount{0};
-    std::atomic<std::size_t> mReadCommitCount{0};
+    std::vector<T> _buffer;
+    std::atomic<std::size_t> _capacity{0};
+    std::atomic<std::size_t> _write_reserve_count{0};
+    std::atomic<std::size_t> _write_commit_count{0};
+    std::atomic<std::size_t> _read_reserve_count{0};
+    std::atomic<std::size_t> _read_commit_count{0};
 };
 
 }} // namespace utils::leopard
