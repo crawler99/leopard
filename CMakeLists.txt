@@ -95,7 +95,6 @@ macro(package_add_test LIBNAME)
     gtest_discover_tests(${EXECUTABLE}
         # Set a working directory to your project root so that you can find test data via paths relative to the project root.
         WORKING_DIRECTORY ${PROJECT_DIR}
-        PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_DIR}"
     )
 endmacro()
 
