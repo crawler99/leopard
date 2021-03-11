@@ -395,10 +395,10 @@ TEST(MPMCRingBuffer, timerfd_eventfd_socket)
     };
 
     struct itimerspec ts;
-	ts.it_interval.tv_sec = 3;
-	ts.it_interval.tv_nsec = 0;
-	ts.it_value.tv_sec = 3;
-	ts.it_value.tv_nsec = 0;
+    ts.it_interval.tv_sec = 3;
+    ts.it_interval.tv_nsec = 0;
+    ts.it_value.tv_sec = 3;
+    ts.it_value.tv_nsec = 0;
 
     int tfd = timerfd_create(CLOCK_MONOTONIC, 0);
     ASSERT_FALSE(tfd == -1);
