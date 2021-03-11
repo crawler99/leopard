@@ -7,12 +7,10 @@
 #include "MPMCRingBuffer.hxx"
 #include "Reactor.hxx"
 
-#include <functional>
 #include <map>
 #include <vector>
 #include <chrono>
 #include <thread>
-#include <functional>
 #include <sys/timerfd.h>
 
 TEST(Singleton, correctness)
@@ -351,23 +349,24 @@ TEST(MPMCRingBuffer, multiple_producer_multiple_consumer)
 
 TEST(MPMCRingBuffer, timerfd_eventfd_socket)
 {
-    class TimerFdHandler : public leopard::utils::EventHandlerInterface
+    class TimerFdHandler : public leopard::utils::FdEventHandler
     {
     public:
-        void OnEvent(void *data)
+        using leopard::utils::FdEventHandler::FdEventHandler;
+
+        void OnEvent()
         {
-            int *fd = reinterpret_cast<int*>(data);
             uint64_t res;
-            if (read(*fd, &res, sizeof(res)) == sizeof(res))
+            if (read(GetFd(), &res, sizeof(res)) == sizeof(res))
             {
                 ++_evtCtr;
             }
         }
 
-        void OnError(void *data)
+        void OnError()
         {
             _err = true;
-            close(*reinterpret_cast<int*>(data));
+            close(GetFd());
         }
 
         uint32_t GetEventCount()
@@ -382,12 +381,12 @@ TEST(MPMCRingBuffer, timerfd_eventfd_socket)
 
         HandlerFunc GetHandlerFunc() override
         {
-            return std::bind(&TimerFdHandler::OnEvent, this, std::placeholders::_1);
+            return [this](){ OnEvent(); };
         }
 
         ErrorFunc GetErrorFunc() override
         {
-            return std::bind(&TimerFdHandler::OnError, this, std::placeholders::_1);
+            return [this](){ OnError(); };
         }
 
     private:
@@ -406,7 +405,7 @@ TEST(MPMCRingBuffer, timerfd_eventfd_socket)
     int ret = timerfd_settime(tfd, 0, &ts, NULL);
     ASSERT_FALSE(ret < 0);
 
-    TimerFdHandler handler;
+    TimerFdHandler handler(tfd);
     leopard::utils::Reactor<leopard::utils::FdAggregator> reactor;
     ASSERT_TRUE(reactor.AddFd(tfd, EPOLLET|EPOLLIN|EPOLLERR|EPOLLRDHUP, &handler));
 
