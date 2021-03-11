@@ -36,8 +36,8 @@ endif()
 # every compiler, error messages for unsupported compilers won't
 # be useful, and some IDEs might not pick up the manual flags.
 
-# Requires C++11 (set CXX_STANDARD property on all targets)
-set(CMAKE_CXX_STANDARD 11 CACHE STRING "The C++ standard to use")
+# Requires C++17 (set CXX_STANDARD property on all targets)
+set(CMAKE_CXX_STANDARD 17 CACHE STRING "The C++ standard to use")
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Optional: it ensures -std=c++11 vs. something like -std=g++11
 set(CMAKE_CXX_EXTENSIONS OFF)

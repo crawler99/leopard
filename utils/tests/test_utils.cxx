@@ -5,12 +5,15 @@
 #include "Event.hxx"
 #include "ThreadRAII.hxx"
 #include "MPMCRingBuffer.hxx"
+#include "Reactor.hxx"
 
 #include <functional>
 #include <map>
 #include <vector>
 #include <chrono>
 #include <thread>
+#include <functional>
+#include <sys/timerfd.h>
 
 TEST(Singleton, correctness)
 {
@@ -190,8 +193,8 @@ TEST(MPMCRingBuffer, basic_equeue_dequeue)
 {
     struct Message
     {
-        std::size_t mSeq{0};
-        std::vector<const char*> mDataPointers;
+        std::size_t _seq{0};
+        std::vector<const char*> _data_pointers;
     };
 
     leopard::utils::MPMCRingBuffer<Message> buff;
@@ -207,7 +210,7 @@ TEST(MPMCRingBuffer, basic_equeue_dequeue)
     {
         auto writeMsg = buff.GetMessageForWrite();
         ASSERT_TRUE(writeMsg);
-        ASSERT_EQ(writeMsg->mSeq, i);
+        ASSERT_EQ(writeMsg->_seq, i);
         writeMsgVect.push_back(writeMsg);
     }
     auto writeMsg = buff.GetMessageForWrite();
@@ -226,7 +229,7 @@ TEST(MPMCRingBuffer, basic_equeue_dequeue)
     {
         auto readMsg = buff.GetMessageForRead();
         ASSERT_TRUE(readMsg);
-        ASSERT_EQ(readMsg->mSeq, i);
+        ASSERT_EQ(readMsg->_seq, i);
         readMsgVect.push_back(readMsg);
     }
     auto readMsg = buff.GetMessageForRead();
@@ -244,8 +247,8 @@ TEST(MPMCRingBuffer, multiple_producer_multiple_consumer)
 {
     struct Message
     {
-        std::size_t mSeq{0};
-        std::vector<const char*> mDataPointers;
+        std::size_t _seq{0};
+        std::vector<const char*> _data_pointers;
     };
 
     leopard::utils::MPMCRingBuffer<Message> buff;
@@ -276,10 +279,10 @@ TEST(MPMCRingBuffer, multiple_producer_multiple_consumer)
                 auto msg = buff.GetMessageForWrite();
                 if (msg)
                 {
-                    if (msg->mSeq < numValues) // msg->mSeq can increase beyond numValues in this test.
+                    if (msg->_seq < numValues) // msg->_seq can increase beyond numValues in this test.
                     {
-                        msg->mDataPointers.push_back(values[msg->mSeq].c_str());
-                        if (msg->mDataPointers.size() != 1)
+                        msg->_data_pointers.push_back(values[msg->_seq].c_str());
+                        if (msg->_data_pointers.size() != 1)
                         {
                             ++writeFailureCtr;
                         }
@@ -311,8 +314,8 @@ TEST(MPMCRingBuffer, multiple_producer_multiple_consumer)
                 auto msg = buff.GetMessageForRead();
                 if (msg)
                 {
-                    if ((msg->mSeq < numValues) && // msg->mSeq can increase beyond numValues in this test.
-                        ((msg->mDataPointers.size() != 1) || (msg->mDataPointers[0] != values[msg->mSeq].c_str())))
+                    if ((msg->_seq < numValues) && // msg->_seq can increase beyond numValues in this test.
+                        ((msg->_data_pointers.size() != 1) || (msg->_data_pointers[0] != values[msg->_seq].c_str())))
                     {
                         ++readFailureCtr;
                     }
@@ -344,4 +347,74 @@ TEST(MPMCRingBuffer, multiple_producer_multiple_consumer)
     ASSERT_EQ(writeFailureCtr.load(), 0U);
     ASSERT_EQ(readCtr.load(), numValues + consumerNum);
     ASSERT_EQ(readFailureCtr.load(), 0U);
+}
+
+TEST(MPMCRingBuffer, timerfd_eventfd_socket)
+{
+    class TimerFdHandler : public leopard::utils::EventHandlerInterface
+    {
+    public:
+        void OnEvent(void *data)
+        {
+            int *fd = reinterpret_cast<int*>(data);
+            uint64_t res;
+            if (read(*fd, &res, sizeof(res)) == sizeof(res))
+            {
+                ++_evtCtr;
+            }
+        }
+
+        void OnError(void *data)
+        {
+            _err = true;
+            close(*reinterpret_cast<int*>(data));
+        }
+
+        uint32_t GetEventCount()
+        {
+            return _evtCtr;
+        }
+
+        bool IsError()
+        {
+            return _err;
+        }
+
+        HandlerFunc GetHandlerFunc() override
+        {
+            return std::bind(&TimerFdHandler::OnEvent, this, std::placeholders::_1);
+        }
+
+        ErrorFunc GetErrorFunc() override
+        {
+            return std::bind(&TimerFdHandler::OnError, this, std::placeholders::_1);
+        }
+
+    private:
+        bool _err{false};
+        uint32_t _evtCtr{0};
+    };
+
+    struct itimerspec ts;
+	ts.it_interval.tv_sec = 3;
+	ts.it_interval.tv_nsec = 0;
+	ts.it_value.tv_sec = 3;
+	ts.it_value.tv_nsec = 0;
+
+    int tfd = timerfd_create(CLOCK_MONOTONIC, 0);
+    ASSERT_FALSE(tfd == -1);
+    int ret = timerfd_settime(tfd, 0, &ts, NULL);
+    ASSERT_FALSE(ret < 0);
+
+    TimerFdHandler handler;
+    leopard::utils::Reactor<leopard::utils::FdAggregator> reactor;
+    ASSERT_TRUE(reactor.AddFd(tfd, EPOLLET|EPOLLIN|EPOLLERR|EPOLLRDHUP, &handler));
+
+    auto t = std::thread(&decltype(reactor)::Run, &reactor);
+    std::this_thread::sleep_for(std::chrono::seconds(10));
+    reactor.Stop();
+    t.join();
+    close(tfd);
+    ASSERT_EQ(handler.GetEventCount(), 3U);
+    ASSERT_FALSE(handler.IsError());
 }
