@@ -64,7 +64,7 @@ protected:
         {
             throw std::system_error(errno, std::system_category(), std::string("epoll_wait() error: ").append(strerror(errno)).c_str());
         }
-        else if (number > 0)
+        else
         {
             HandleEvents(_events, number);
         }
@@ -73,18 +73,21 @@ protected:
 private:
     void HandleEvents(struct epoll_event *events, int number)
     {
-        for (int i = 0; i < number; i++)
+        for (int i = 0; i < number; ++i)
         {
             auto *handler = static_cast<FdEventHandler*>(events[i].data.ptr);
 
             if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLRDHUP))
             {
-                std::cout << "fd Error: fd=" << handler->GetFd() << std::endl;
-                handler->GetErrorFunc()();
                 if (epoll_ctl(_epoll_fd, EPOLL_CTL_DEL, handler->GetFd(), nullptr) == -1)
                 {
                     std::cout << "Failed to remove fd from aggregator: fd=" << handler->GetFd() << ", errno=" << errno << ", err_text=" << strerror(errno) << std::endl;
                 }
+                else
+                {
+                    std::cout << "Detected error when polling fd, removed it from aggregator: fd=" << handler->GetFd() << std::endl;
+                }
+                handler->GetErrorFunc()();
                 // Don't close fd here, leaving it to upper level.
             }
             else if (events[i].events & EPOLLIN)
