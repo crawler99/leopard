@@ -78,7 +78,7 @@ find_package(Threads REQUIRED)
 if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
     include(CTest)
     if(BUILD_TESTING)
-        add_subdirectory("extern/googletest")
+        add_subdirectory("extern/googletest" EXCLUDE_FROM_ALL)
         # Use the GoogleTest module to help use the Google Test infrastructure.
         include(GoogleTest)
     endif()
